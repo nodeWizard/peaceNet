@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Send, Bot, User, Sparkles } from 'lucide-react';
+import { getGeminiReply, listGeminiModels } from '../lib/gemini';
 
 const INITIAL_MESSAGES = [
   { 
@@ -24,12 +25,13 @@ export function AISupportAgent() {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    listGeminiModels();
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages, isTyping]);
 
-  const handleSend = (text: string) => {
+  const handleSend = async (text: string) => {
     if (!text.trim()) return;
 
     const userMsg = { id: Date.now(), role: 'user', content: text };
@@ -37,19 +39,29 @@ export function AISupportAgent() {
     setInput('');
     setIsTyping(true);
 
-    // Simulate AI response
-    setTimeout(() => {
-       const responses = [
-          "I'm so sorry you're going through this. Remember, you don't have to engage with hateful content. Have you considered muting or blocking the user?",
-          "That sounds really tough. It's completely valid to feel that way. Prioritize your mental health right now.",
-          "Here is a strategy: Take a screenshot for evidence, report the content, and then block the account. You are taking back control.",
-          "It's great that you want to help. Sometimes just listening to your friend is the most powerful thing you can do."
-       ];
-       const randomResponse = responses[Math.floor(Math.random() * responses.length)];
-       
-       setMessages(prev => [...prev, { id: Date.now() + 1, role: 'bot', content: randomResponse }]);
-       setIsTyping(false);
-    }, 1500);
+    try {
+      const reply = await getGeminiReply([...messages, userMsg]);
+      setMessages(prev => [
+        ...prev,
+        {
+          id: Date.now() + 1,
+          role: 'bot',
+          content: reply || "I'm here with you. Could you share a bit more?",
+        },
+      ]);
+    } catch (error) {
+      setMessages(prev => [
+        ...prev,
+        {
+          id: Date.now() + 1,
+          role: 'bot',
+          content:
+            "I'm sorry, I'm having trouble responding right now. Please try again in a moment.",
+        },
+      ]);
+    } finally {
+      setIsTyping(false);
+    }
   };
 
   return (
